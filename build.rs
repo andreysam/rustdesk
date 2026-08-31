@@ -102,4 +102,8 @@ fn main() {
         build_android_ifaddrs();
     }
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-env-changed=RUSTDESK_SERVER_URL");
+    println!("cargo:rerun-if-env-changed=RUSTDESK_SERVER_KEY");
+    println!("cargo:rerun-if-env-changed=RUSTDESK_SERVER_RELAY");
+    println!("cargo:rerun-if-env-changed=RUSTDESK_SERVER_API");
 }
