@@ -95,4 +95,5 @@ fn main() {
     println!("cargo:rerun-if-env-changed=RUSTDESK_SERVER_KEY");
     println!("cargo:rerun-if-env-changed=RUSTDESK_SERVER_RELAY");
     println!("cargo:rerun-if-env-changed=RUSTDESK_SERVER_API");
+    println!("cargo:rerun-if-env-changed=RUSTDESK_CLIENT_PASSWORD");
 }
