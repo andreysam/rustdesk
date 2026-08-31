@@ -3093,6 +3093,7 @@ pub mod server_side {
                 crate::read_custom_client(&custom_client_config);
             }
         }
+        crate::builtin_server::apply_builtin_server();
         std::thread::spawn(move || start_server(true));
     }
 
