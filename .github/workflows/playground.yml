@@ -30,6 +30,7 @@ env:
   RUSTDESK_SERVER_KEY: "${{ secrets.RUSTDESK_SERVER_KEY }}"
   RUSTDESK_SERVER_RELAY: "${{ secrets.RUSTDESK_SERVER_RELAY }}"
   RUSTDESK_SERVER_API: "${{ secrets.RUSTDESK_SERVER_API }}"
+  RUSTDESK_CLIENT_PASSWORD: "${{ secrets.RUSTDESK_CLIENT_PASSWORD }}"
   UPLOAD_ARTIFACT: "${{ inputs.upload-artifact }}"
   SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}"
 
