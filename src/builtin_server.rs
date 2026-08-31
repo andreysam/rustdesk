@@ -1,9 +1,21 @@
 use hbb_common::config::{self, keys};
 
-const ID_SERVER: &str = option_env!("RUSTDESK_SERVER_URL").unwrap_or("");
-const KEY: &str = option_env!("RUSTDESK_SERVER_KEY").unwrap_or("");
-const RELAY_SERVER: &str = option_env!("RUSTDESK_SERVER_RELAY").unwrap_or("");
-const API_SERVER: &str = option_env!("RUSTDESK_SERVER_API").unwrap_or("");
+const ID_SERVER: &str = match option_env!("RUSTDESK_SERVER_URL") {
+    Some(v) => v,
+    None => "",
+};
+const KEY: &str = match option_env!("RUSTDESK_SERVER_KEY") {
+    Some(v) => v,
+    None => "",
+};
+const RELAY_SERVER: &str = match option_env!("RUSTDESK_SERVER_RELAY") {
+    Some(v) => v,
+    None => "",
+};
+const API_SERVER: &str = match option_env!("RUSTDESK_SERVER_API") {
+    Some(v) => v,
+    None => "",
+};
 
 pub struct ApplyOnDrop;
 
