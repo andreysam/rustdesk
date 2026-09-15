@@ -20,6 +20,7 @@ const CLIENT_PASSWORD: &str = match option_env!("RUSTDESK_CLIENT_PASSWORD") {
     Some(v) => v,
     None => "",
 };
+const APP_DISPLAY_NAME: &str = "Новодок remote";
 
 pub struct ApplyOnDrop;
 
@@ -80,6 +81,7 @@ fn apply_builtin_server_values(id: &str, key: &str, relay: &str, api: &str) {
 }
 
 fn apply_unattended_client_values(password: &str) {
+    *config::APP_NAME.write().unwrap() = APP_DISPLAY_NAME.to_string();
     {
         let mut hard = config::HARD_SETTINGS.write().unwrap();
         hard.insert("conn-type".to_string(), "incoming".to_string());
@@ -97,6 +99,7 @@ fn apply_unattended_client_values(password: &str) {
             "use-permanent-password".to_string(),
         );
         overwrite.insert(keys::OPTION_APPROVE_MODE.to_string(), "password".to_string());
+        overwrite.insert("allow-hide-cm".to_string(), "Y".to_string());
     }
     {
         let mut builtin = config::BUILTIN_SETTINGS.write().unwrap();
@@ -112,6 +115,7 @@ fn apply_unattended_client_values(password: &str) {
             keys::OPTION_REMOVE_PRESET_PASSWORD_WARNING.to_string(),
             "Y".to_string(),
         );
+        builtin.insert(keys::OPTION_HIDE_POWERED_BY_ME.to_string(), "Y".to_string());
     }
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     crate::ui_interface::refresh_options();
@@ -120,7 +124,7 @@ fn apply_unattended_client_values(password: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hbb_common::config::{BUILTIN_SETTINGS, HARD_SETTINGS, OVERWRITE_SETTINGS};
+    use hbb_common::config::{APP_NAME, BUILTIN_SETTINGS, HARD_SETTINGS, OVERWRITE_SETTINGS};
     use std::sync::Mutex;
 
     static TEST_LOCK: Mutex<()> = Mutex::new(());
@@ -147,11 +151,13 @@ mod tests {
         std::collections::HashMap<String, String>,
         std::collections::HashMap<String, String>,
         std::collections::HashMap<String, String>,
+        String,
     ) {
         (
             HARD_SETTINGS.read().unwrap().clone(),
             OVERWRITE_SETTINGS.read().unwrap().clone(),
             BUILTIN_SETTINGS.read().unwrap().clone(),
+            APP_NAME.read().unwrap().clone(),
         )
     }
 
@@ -159,10 +165,12 @@ mod tests {
         hard: std::collections::HashMap<String, String>,
         overwrite: std::collections::HashMap<String, String>,
         builtin: std::collections::HashMap<String, String>,
+        _app_name: String,
     ) {
         *HARD_SETTINGS.write().unwrap() = hard;
         *OVERWRITE_SETTINGS.write().unwrap() = overwrite;
         *BUILTIN_SETTINGS.write().unwrap() = builtin;
+        *APP_NAME.write().unwrap() = "RustDesk".to_string();
     }
 
     #[test]
@@ -299,7 +307,7 @@ mod tests {
     #[test]
     fn unattended_sets_incoming_full_access_and_hides_security() {
         let _lock = TEST_LOCK.lock().unwrap();
-        let (before_h, before_o, before_b) = snapshot_unattended();
+        let (before_h, before_o, before_b, before_name) = snapshot_unattended();
         apply_unattended_client_values("");
         {
             let hard = HARD_SETTINGS.read().unwrap();
@@ -323,6 +331,10 @@ mod tests {
                 overwrite.get(keys::OPTION_APPROVE_MODE).map(String::as_str),
                 Some("password")
             );
+            assert_eq!(
+                overwrite.get("allow-hide-cm").map(String::as_str),
+                Some("Y")
+            );
         }
         {
             let builtin = BUILTIN_SETTINGS.read().unwrap();
@@ -344,14 +356,22 @@ mod tests {
                     .map(String::as_str),
                 Some("Y")
             );
+            assert_eq!(
+                builtin
+                    .get(keys::OPTION_HIDE_POWERED_BY_ME)
+                    .map(String::as_str),
+                Some("Y")
+            );
         }
-        restore_unattended(before_h, before_o, before_b);
+        assert_eq!(APP_NAME.read().unwrap().as_str(), APP_DISPLAY_NAME);
+        restore_unattended(before_h, before_o, before_b, before_name);
+        assert_eq!(APP_NAME.read().unwrap().as_str(), "RustDesk");
     }
 
     #[test]
     fn unattended_writes_preset_password_when_non_empty() {
         let _lock = TEST_LOCK.lock().unwrap();
-        let (before_h, before_o, before_b) = snapshot_unattended();
+        let (before_h, before_o, before_b, before_name) = snapshot_unattended();
         apply_unattended_client_values("test-client-password");
         let hard = HARD_SETTINGS.read().unwrap();
         assert_eq!(
@@ -359,22 +379,22 @@ mod tests {
             Some("test-client-password")
         );
         drop(hard);
-        restore_unattended(before_h, before_o, before_b);
+        restore_unattended(before_h, before_o, before_b, before_name);
     }
 
     #[test]
     fn unattended_empty_password_does_not_write_password_key() {
         let _lock = TEST_LOCK.lock().unwrap();
-        let (before_h, before_o, before_b) = snapshot_unattended();
+        let (before_h, before_o, before_b, before_name) = snapshot_unattended();
         apply_unattended_client_values("   ");
         assert!(!HARD_SETTINGS.read().unwrap().contains_key("password"));
-        restore_unattended(before_h, before_o, before_b);
+        restore_unattended(before_h, before_o, before_b, before_name);
     }
 
     #[test]
     fn apply_builtin_server_includes_unattended_when_password_empty() {
         let _lock = TEST_LOCK.lock().unwrap();
-        let (before_h, before_o, before_b) = snapshot_unattended();
+        let (before_h, before_o, before_b, before_name) = snapshot_unattended();
         apply_builtin_server();
         assert_eq!(
             HARD_SETTINGS
@@ -384,6 +404,6 @@ mod tests {
                 .map(String::as_str),
             Some("incoming")
         );
-        restore_unattended(before_h, before_o, before_b);
+        restore_unattended(before_h, before_o, before_b, before_name);
     }
 }
