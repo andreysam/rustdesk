@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Новодок remote
+NoDisplay=true
+MimeType=x-scheme-handler/novodoc-remote;
+TryExec=novodoc-remote
+Exec=novodoc-remote %u
+Icon=novodoc-remote
+Terminal=false
+Type=Application
+StartupNotify=false
+StartupWMClass=novodoc-remote

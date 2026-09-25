@@ -33,11 +33,11 @@
 		</StandardDirectory>
 
 		<StandardDirectory Id="CommonAppDataFolder">
-			<Directory Id="App.Data.Folder" Name="$(var.Product)" />
+			<Directory Id="App.Data.Folder" Name="$(var.DisplayName)" />
 		</StandardDirectory>
 
 		<StandardDirectory Id="ProgramMenuFolder">
-			<Directory Id="App.StartMenu" Name="$(var.Product)" />
+			<Directory Id="App.StartMenu" Name="$(var.DisplayName)" />
 		</StandardDirectory>
 
 		<StandardDirectory Id="DesktopFolder" />

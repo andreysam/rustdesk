@@ -23,19 +23,19 @@
 		<SetProperty Action="SetShareRdpFromLegacyState32" Id="SHARE_RDP" Value="[LEGACY_SHARE_RDP32]" After="SetShareRdpFromLegacyState" Sequence="first" Condition="NOT CURRENT_SHARE_RDP AND NOT LEGACY_SHARE_RDP AND LEGACY_SHARE_RDP32" />
 
 		<DirectoryRef Id="INSTALLFOLDER_INNER">
-			<Component Id="Product.Registry.InstallFolder" Guid="3196EDA7-9AEF-4705-A0C8-E3F3ECCCB153">
+			<Component Id="Product.Registry.InstallFolder" Guid="f760203d-1e63-571c-8b16-c635bbf4f6c4">
 				<RegistryKey Root="HKCR" Key="$(var.RegKeyRoot)">
 					<RegistryValue Type="string" Name="INSTALLFOLDER" Value="[INSTALLFOLDER_INNER]" />
 				</RegistryKey>
 			</Component>
 
-			<Component Id="Product.Registry.DefaultIcon" Guid="6DBF2690-0955-4C6A-940F-634DDA503F49">
+			<Component Id="Product.Registry.DefaultIcon" Guid="c9df307a-53fd-56fe-a25c-0b031550cdae">
 				<RegistryKey Root="HKCR" Key="$(var.RegKeyRoot)\DefaultIcon">
 					<RegistryValue Type="string" Value='"[INSTALLFOLDER_INNER]$(var.Product).exe",0' />
 				</RegistryKey>
 			</Component>
 
-			<Component Id="Product.Registry.CommandPlay" Guid="613C9E4F-2F1F-45A3-96E2-26EBBEBA6B0E">
+			<Component Id="Product.Registry.CommandPlay" Guid="1ed8797d-b14a-5ea7-9f50-c64736136f57">
 				<RegistryKey Root="HKCR" Key="$(var.RegKeyRoot)\shell" />
 				<RegistryKey Root="HKCR" Key="$(var.RegKeyRoot)\shell\open" />
 				<RegistryKey Root="HKCR" Key="$(var.RegKeyRoot)\shell\open\command">
@@ -43,13 +43,13 @@
 				</RegistryKey>
 			</Component>
 
-			<Component Id="Product.Registry.URLProtocol" Guid="565BE3F8-23A7-4B9D-B0DE-6D51CC86FC0B">
+			<Component Id="Product.Registry.URLProtocol" Guid="6778a70e-d8c4-5979-bfa9-4c0bad4e7baf">
 				<RegistryKey Root="HKCR" Key="$(var.ProductLower)">
 					<RegistryValue Type="string" Name="URL Protocol" Value="" />
 				</RegistryKey>
 			</Component>
 
-			<Component Id="Product.Registry.Command" Guid="BC8D581C-5960-4843-93DC-E347CD43BD49">
+			<Component Id="Product.Registry.Command" Guid="a5587fc4-f4fd-5f2f-8bbb-d04fbe5b31e1">
 				<RegistryKey Root="HKCR" Key="$(var.ProductLower)\shell" />
 				<RegistryKey Root="HKCR" Key="$(var.ProductLower)\shell\open" />
 				<RegistryKey Root="HKCR" Key="$(var.ProductLower)\shell\open\command">
@@ -57,7 +57,7 @@
 				</RegistryKey>
 			</Component>
 
-			<Component Id="Product.Registry.InstallState" Guid="E310003A-C292-4851-AE20-7A9B186060CE">
+			<Component Id="Product.Registry.InstallState" Guid="7d887de3-b179-5356-b19c-4fe724ca34a4">
 				<RegistryKey Root="HKLM" Key="Software\$(var.Product)\InstallState\$(var.Product)" ForceDeleteOnUninstall="yes">
 					<RegistryValue Type="string" Name="BuildDate" Value="$(var.BuildDate)" />
 					<RegistryValue Type="string" Name="share_rdp" Value="[SHARE_RDP]" />
