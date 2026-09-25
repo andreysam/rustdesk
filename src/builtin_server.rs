@@ -115,7 +115,7 @@ fn apply_unattended_client_values(password: &str) {
             keys::OPTION_REMOVE_PRESET_PASSWORD_WARNING.to_string(),
             "Y".to_string(),
         );
-        builtin.insert(keys::OPTION_HIDE_POWERED_BY_ME.to_string(), "Y".to_string());
+        builtin.remove(keys::OPTION_HIDE_POWERED_BY_ME);
     }
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     crate::ui_interface::refresh_options();
@@ -356,12 +356,7 @@ mod tests {
                     .map(String::as_str),
                 Some("Y")
             );
-            assert_eq!(
-                builtin
-                    .get(keys::OPTION_HIDE_POWERED_BY_ME)
-                    .map(String::as_str),
-                Some("Y")
-            );
+            assert!(!builtin.contains_key(keys::OPTION_HIDE_POWERED_BY_ME));
         }
         assert_eq!(APP_NAME.read().unwrap().as_str(), APP_DISPLAY_NAME);
         restore_unattended(before_h, before_o, before_b, before_name);

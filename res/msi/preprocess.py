@@ -27,15 +27,15 @@ g_arpsystemcomponent = {
     },
     "Contact": {
         "msi": "ARPCONTACT",
-        "v": "https://github.com/rustdesk/rustdesk",
+        "v": "https://github.com/andreysam/rustdesk",
     },
     "HelpLink": {
         "msi": "ARPHELPLINK",
-        "v": "https://github.com/rustdesk/rustdesk/issues/",
+        "v": "https://github.com/andreysam/rustdesk/issues/",
     },
     "ReadMe": {
         "msi": "ARPREADME",
-        "v": "https://github.com/rustdesk/rustdesk",
+        "v": "https://github.com/andreysam/rustdesk",
     },
 }
 
@@ -48,7 +48,7 @@ def make_parser():
         "-d",
         "--dist-dir",
         type=str,
-        default="../../rustdesk",
+        default="../../novodoc-remote",
         help="The dist directory to install.",
     )
     parser.add_argument(
@@ -73,7 +73,10 @@ def make_parser():
         help='Connection type, e.g. "incoming", "outgoing". Default is empty, means incoming-outgoing',
     )
     parser.add_argument(
-        "--app-name", type=str, default="RustDesk", help="The app name."
+        "--app-name", type=str, default="novodoc-remote", help="The executable and install directory name."
+    )
+    parser.add_argument(
+        "--display-name", type=str, default="Новодок remote", help="The visible product and shortcut name."
     )
     parser.add_argument(
         "-v", "--version", type=str, default="", help="The app version."
@@ -85,7 +88,7 @@ def make_parser():
         "-m",
         "--manufacturer",
         type=str,
-        default="Purslane Tech Pte. Ltd.",
+        default="Novodoc",
         help="The app manufacturer.",
     )
     return parser
@@ -129,7 +132,7 @@ def insert_components_between_tags(lines, index_start, app_name, dist_dir):
             # because it will cause error
             # "Error WIX0130	The primary key 'xxxx' is duplicated in table 'Directory'"
             to_insert_lines = f"""
-{indent}<Component Guid="{uuid.uuid4()}" {dir_attr}>
+{indent}<Component Guid="{uuid.uuid5(uuid.NAMESPACE_URL, app_name + '/' + file_path.relative_to(path).as_posix())}" {dir_attr}>
 {indent}{g_indent_unit}<File Source="{file_path.as_posix()}" KeyPath="yes" Checksum="yes" />
 {indent}</Component>
 """
@@ -159,7 +162,8 @@ def gen_pre_vars(args, dist_dir):
             f'{indent}<?define Version="{g_version}" ?>\n',
             f'{indent}<?define Manufacturer="{args.manufacturer}" ?>\n',
             f'{indent}<?define Product="{args.app_name}" ?>\n',
-            f'{indent}<?define Description="{args.app_name} Installer" ?>\n',
+            f'{indent}<?define DisplayName="{args.display_name}" ?>\n',
+            f'{indent}<?define Description="{args.display_name} Installer" ?>\n',
             f'{indent}<?define ProductLower="{args.app_name.lower()}" ?>\n',
             f'{indent}<?define RegKeyRoot=".$(var.ProductLower)" ?>\n',
             f'{indent}<?define RegKeyInstall="$(var.RegKeyRoot)\\Install" ?>\n',
@@ -207,7 +211,7 @@ def gen_upgrade_info():
 
         vs = g_version.split(".")
         major = vs[0]
-        upgrade_id = uuid.uuid4()
+        upgrade_id = uuid.uuid5(uuid.NAMESPACE_OID, app_name + '.legacy-upgrade')
         to_insert_lines = [
             f'{indent}<Upgrade Id="{upgrade_id}">\n',
             f'{indent}{g_indent_unit}<UpgradeVersion Property="OLD_VERSION_FOUND" Minimum="{major}.0.0" Maximum="{major}.99.99" IncludeMinimum="yes" IncludeMaximum="yes" OnlyDetect="no" IgnoreRemoveFailure="yes" MigrateFeatures="yes" />\n',
@@ -311,7 +315,7 @@ def gen_custom_ARPSYSTEMCOMPONENT_True(args, dist_dir):
             f"{indent}<!--https://learn.microsoft.com/en-us/windows/win32/msi/property-reference-->\n"
         )
         lines_new.append(
-            f'{indent}<RegistryValue Type="string" Name="DisplayName" Value="{args.app_name}" />\n'
+            f'{indent}<RegistryValue Type="string" Name="DisplayName" Value="{args.display_name}" />\n'
         )
         lines_new.append(
             f'{indent}<RegistryValue Type="string" Name="DisplayIcon" Value="[INSTALLFOLDER_INNER]{args.app_name}.exe" />\n'
@@ -533,13 +537,8 @@ if __name__ == "__main__":
     if not init_global_vars(dist_dir, app_name, args):
         sys.exit(-1)
 
-    update_license_file(app_name)
-
     if not gen_pre_vars(args, dist_dir):
         sys.exit(-1)
-
-    if app_name != "RustDesk":
-        replace_component_guids_in_wxs()
 
     if not gen_upgrade_info():
         sys.exit(-1)
@@ -556,5 +555,5 @@ if __name__ == "__main__":
     if not gen_custom_dialog_bitmaps():
         sys.exit(-1)
 
-    replace_app_name_in_langs(args.app_name)
+    replace_app_name_in_langs(args.display_name)
     replace_app_name_in_custom_actions(args.app_name)
