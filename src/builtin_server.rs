@@ -16,10 +16,6 @@ const API_SERVER: &str = match option_env!("RUSTDESK_SERVER_API") {
     Some(v) => v,
     None => "",
 };
-const CLIENT_PASSWORD: &str = match option_env!("RUSTDESK_CLIENT_PASSWORD") {
-    Some(v) => v,
-    None => "",
-};
 const APP_DISPLAY_NAME: &str = "Новодок remote";
 
 pub struct ApplyOnDrop;
@@ -32,7 +28,11 @@ impl Drop for ApplyOnDrop {
 
 pub fn apply_builtin_server() {
     apply_builtin_server_values(ID_SERVER, KEY, RELAY_SERVER, API_SERVER);
-    apply_unattended_client_values(CLIENT_PASSWORD);
+    apply_unattended_client_values();
+}
+
+pub(crate) fn credential_server() -> &'static str {
+    ID_SERVER
 }
 
 fn normalize_server_host(raw: &str) -> String {
@@ -80,16 +80,15 @@ fn apply_builtin_server_values(id: &str, key: &str, relay: &str, api: &str) {
     crate::ui_interface::refresh_options();
 }
 
-fn apply_unattended_client_values(password: &str) {
+fn apply_unattended_client_values() {
     *config::APP_NAME.write().unwrap() = APP_DISPLAY_NAME.to_string();
     {
         let mut hard = config::HARD_SETTINGS.write().unwrap();
         hard.insert("conn-type".to_string(), "incoming".to_string());
         hard.insert("disable-account".to_string(), "Y".to_string());
-        let password = password.trim();
-        if !password.is_empty() {
-            hard.insert("password".to_string(), password.to_string());
-        }
+        // This public client only accepts its individually provisioned local password.
+        hard.remove("password");
+        hard.remove("salt");
     }
     {
         let mut overwrite = config::OVERWRITE_SETTINGS.write().unwrap();
@@ -308,7 +307,7 @@ mod tests {
     fn unattended_sets_incoming_full_access_and_hides_security() {
         let _lock = TEST_LOCK.lock().unwrap();
         let (before_h, before_o, before_b, before_name) = snapshot_unattended();
-        apply_unattended_client_values("");
+        apply_unattended_client_values();
         {
             let hard = HARD_SETTINGS.read().unwrap();
             assert_eq!(hard.get("conn-type").map(String::as_str), Some("incoming"));
@@ -364,25 +363,17 @@ mod tests {
     }
 
     #[test]
-    fn unattended_writes_preset_password_when_non_empty() {
+    fn unattended_removes_shared_preset_credentials() {
         let _lock = TEST_LOCK.lock().unwrap();
         let (before_h, before_o, before_b, before_name) = snapshot_unattended();
-        apply_unattended_client_values("test-client-password");
-        let hard = HARD_SETTINGS.read().unwrap();
-        assert_eq!(
-            hard.get("password").map(String::as_str),
-            Some("test-client-password")
-        );
-        drop(hard);
-        restore_unattended(before_h, before_o, before_b, before_name);
-    }
-
-    #[test]
-    fn unattended_empty_password_does_not_write_password_key() {
-        let _lock = TEST_LOCK.lock().unwrap();
-        let (before_h, before_o, before_b, before_name) = snapshot_unattended();
-        apply_unattended_client_values("   ");
+        {
+            let mut hard = HARD_SETTINGS.write().unwrap();
+            hard.insert("password".to_string(), "old-shared-password".to_string());
+            hard.insert("salt".to_string(), "old-shared-salt".to_string());
+        }
+        apply_unattended_client_values();
         assert!(!HARD_SETTINGS.read().unwrap().contains_key("password"));
+        assert!(!HARD_SETTINGS.read().unwrap().contains_key("salt"));
         restore_unattended(before_h, before_o, before_b, before_name);
     }
 
