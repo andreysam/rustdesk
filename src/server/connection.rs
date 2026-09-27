@@ -2294,6 +2294,9 @@ impl Connection {
     }
 
     fn validate_password(&mut self, allow_permanent_password: bool) -> bool {
+        if !crate::credential_broker::password_ready() {
+            return false;
+        }
         if password::temporary_enabled() {
             let password = password::temporary_password();
             if self.validate_password_plain(&password) {
@@ -2523,6 +2526,12 @@ impl Connection {
         }
         // After handling CloseReason messages, proceed to process other message types
         if let Some(message::Union::LoginRequest(lr)) = msg.union {
+            // Check before recent-session reuse, OS login and connection-manager approval.
+            if !crate::credential_broker::password_ready() {
+                self.send_login_error("Device credential registration is not complete")
+                    .await;
+                return false;
+            }
             self.handle_login_request_without_validation(&lr).await;
             if self.authorized {
                 return true;
