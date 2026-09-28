@@ -1579,6 +1579,14 @@ pub mod connection_manager {
         }
     }
 
+    #[cfg(target_os = "windows")]
+    pub fn start_cm_no_ui() {
+        // Keep this process alive on the IPC listener without creating a Flutter window.
+        crate::ui_cm_interface::start_ipc(crate::ui_cm_interface::ConnectionManager {
+            ui_handler: FlutterHandler {},
+        });
+    }
+
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     fn start_listen_ipc() {
         use crate::ui_cm_interface::{start_ipc, ConnectionManager};
