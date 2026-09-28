@@ -6,6 +6,7 @@ use std::{
     task::Poll,
 };
 
+use serde_derive::Deserialize;
 use serde_json::{json, Map, Value};
 
 #[cfg(not(target_os = "ios"))]
@@ -94,9 +95,78 @@ pub mod input {
 
 lazy_static::lazy_static! {
     pub static ref SOFTWARE_UPDATE_URL: Arc<Mutex<String>> = Default::default();
+    pub static ref BRANDED_RELEASE: Arc<Mutex<Option<BrandedRelease>>> = Default::default();
     pub static ref DEVICE_ID: Arc<Mutex<String>> = Default::default();
     pub static ref DEVICE_NAME: Arc<Mutex<String>> = Default::default();
     static ref PUBLIC_IPV6_ADDR: Arc<Mutex<(Option<SocketAddr>, Option<Instant>)>> = Default::default();
+}
+
+const RELEASE_API_URL: &str = "https://api.github.com/repos/andreysam/rustdesk/releases/latest";
+
+#[derive(Clone, Deserialize)]
+pub struct ReleaseAsset {
+    pub name: String,
+    pub browser_download_url: String,
+    pub digest: Option<String>,
+}
+
+#[derive(Clone, Deserialize)]
+pub struct BrandedRelease {
+    pub tag_name: String,
+    pub html_url: String,
+    pub draft: bool,
+    pub prerelease: bool,
+    pub assets: Vec<ReleaseAsset>,
+}
+
+pub fn release_asset(name: &str) -> Option<ReleaseAsset> {
+    BRANDED_RELEASE
+        .lock()
+        .unwrap()
+        .as_ref()?
+        .assets
+        .iter()
+        .find(|asset| asset.name == name)
+        .cloned()
+}
+
+pub fn preferred_release_asset(version: &str) -> Option<ReleaseAsset> {
+    let version = version.trim_start_matches('v');
+    #[cfg(target_os = "windows")]
+    let name = {
+        let arch = crate::platform::windows::release_arch_suffix()?;
+        let ext = if crate::platform::is_msi_installed().unwrap_or(false) {
+            "msi"
+        } else {
+            "exe"
+        };
+        format!("{APP_FILE_NAME}-{version}-{arch}.{ext}")
+    };
+    #[cfg(target_os = "macos")]
+    let name = format!("{APP_FILE_NAME}-{version}-{}.dmg", std::env::consts::ARCH);
+    #[cfg(target_os = "linux")]
+    {
+        let release = BRANDED_RELEASE.lock().unwrap();
+        let assets = &release.as_ref()?.assets;
+        let prefix = format!("{APP_FILE_NAME}-{version}-");
+        let arch = std::env::consts::ARCH;
+        if std::path::Path::new("/var/lib/dpkg/status").exists() {
+            return assets
+                .iter()
+                .find(|asset| asset.name == format!("{APP_FILE_NAME}-{version}-{arch}.deb"))
+                .cloned();
+        }
+        return assets
+            .iter()
+            .find(|asset| {
+                asset.name.starts_with(&prefix) && asset.name.ends_with(&format!(".{arch}.rpm"))
+            })
+            .cloned();
+    }
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    return release_asset(&name);
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    None
 }
 
 lazy_static::lazy_static! {
@@ -939,28 +1009,27 @@ pub fn is_modifier(evt: &KeyEvent) -> bool {
 }
 
 pub fn check_software_update() {
-    if is_custom_client() {
-        return;
-    }
     let opt = LocalConfig::get_option(keys::OPTION_ENABLE_CHECK_UPDATE);
     if config::option2bool(keys::OPTION_ENABLE_CHECK_UPDATE, &opt) {
         std::thread::spawn(move || allow_err!(do_check_software_update()));
     }
 }
 
-// No need to check `danger_accept_invalid_cert` for now.
-// Because the url is always `https://api.rustdesk.com/version/latest`.
 #[tokio::main(flavor = "current_thread")]
 pub async fn do_check_software_update() -> hbb_common::ResultType<()> {
-    let (request, url) =
-        hbb_common::version_check_request(hbb_common::VER_TYPE_RUSTDESK_CLIENT.to_string());
+    let url = RELEASE_API_URL;
     let proxy_conf = Config::get_socks();
     let tls_url = get_url_for_tls(&url, &proxy_conf);
     let tls_type = get_cached_tls_type(tls_url);
     let is_tls_not_cached = tls_type.is_none();
     let tls_type = tls_type.unwrap_or(TlsType::Rustls);
     let client = create_http_client_async(tls_type, false);
-    let latest_release_response = match client.post(&url).json(&request).send().await {
+    let latest_release_response = match client
+        .get(url)
+        .header(reqwest::header::USER_AGENT, "novodoc-remote")
+        .send()
+        .await
+    {
         Ok(resp) => {
             upsert_tls_cache(tls_url, tls_type, false);
             resp
@@ -969,7 +1038,11 @@ pub async fn do_check_software_update() -> hbb_common::ResultType<()> {
             if is_tls_not_cached && err.is_request() {
                 let tls_type = TlsType::NativeTls;
                 let client = create_http_client_async(tls_type, false);
-                let resp = client.post(&url).json(&request).send().await?;
+                let resp = client
+                    .get(url)
+                    .header(reqwest::header::USER_AGENT, "novodoc-remote")
+                    .send()
+                    .await?;
                 upsert_tls_cache(tls_url, tls_type, false);
                 resp
             } else {
@@ -977,12 +1050,26 @@ pub async fn do_check_software_update() -> hbb_common::ResultType<()> {
             }
         }
     };
-    let bytes = latest_release_response.bytes().await?;
-    let resp: hbb_common::VersionCheckResponse = serde_json::from_slice(&bytes)?;
-    let response_url = resp.url;
-    let latest_release_version = response_url.rsplit('/').next().unwrap_or_default();
-
-    if get_version_number(&latest_release_version) > get_version_number(crate::VERSION) {
+    if latest_release_response.status() == reqwest::StatusCode::NOT_FOUND {
+        *SOFTWARE_UPDATE_URL.lock().unwrap() = String::new();
+        *BRANDED_RELEASE.lock().unwrap() = None;
+        return Ok(());
+    }
+    let latest_release_response = latest_release_response.error_for_status()?;
+    let release: BrandedRelease = latest_release_response.json().await?;
+    let latest_release_version = release.tag_name.trim_start_matches('v');
+    let is_version_tag = latest_release_version.split('.').count() == 3
+        && latest_release_version
+            .split('.')
+            .all(|part| part.parse::<u32>().is_ok());
+    if !release.draft
+        && !release.prerelease
+        && is_version_tag
+        && get_version_number(latest_release_version) > get_version_number(crate::VERSION)
+    {
+        let response_url = release.html_url.clone();
+        *BRANDED_RELEASE.lock().unwrap() = Some(release);
+        *SOFTWARE_UPDATE_URL.lock().unwrap() = response_url.clone();
         #[cfg(feature = "flutter")]
         {
             let mut m = HashMap::new();
@@ -992,9 +1079,9 @@ pub async fn do_check_software_update() -> hbb_common::ResultType<()> {
                 let _ = crate::flutter::push_global_event(crate::flutter::APP_TYPE_MAIN, data);
             }
         }
-        *SOFTWARE_UPDATE_URL.lock().unwrap() = response_url;
     } else {
-        *SOFTWARE_UPDATE_URL.lock().unwrap() = "".to_string();
+        *BRANDED_RELEASE.lock().unwrap() = None;
+        *SOFTWARE_UPDATE_URL.lock().unwrap() = String::new();
     }
     Ok(())
 }
@@ -1004,6 +1091,14 @@ pub fn get_app_name() -> String {
     hbb_common::config::APP_NAME.read().unwrap().clone()
 }
 
+pub const APP_FILE_NAME: &str = "novodoc-remote";
+pub const APP_BUNDLE_ID: &str = "ru.novodoc.remote";
+
+#[inline]
+pub fn get_app_id() -> String {
+    APP_FILE_NAME.to_string()
+}
+
 #[inline]
 pub fn is_rustdesk() -> bool {
     hbb_common::config::APP_NAME.read().unwrap().eq("RustDesk")
@@ -1011,16 +1106,12 @@ pub fn is_rustdesk() -> bool {
 
 #[inline]
 pub fn get_uri_prefix() -> String {
-    format!("{}://", get_app_name().to_lowercase())
+    format!("{}://", get_app_id())
 }
 
 #[cfg(target_os = "macos")]
 pub fn get_full_name() -> String {
-    format!(
-        "{}.{}",
-        hbb_common::config::ORG.read().unwrap(),
-        hbb_common::config::APP_NAME.read().unwrap(),
-    )
+    APP_BUNDLE_ID.to_string()
 }
 
 pub fn is_setup(name: &str) -> bool {
@@ -2081,6 +2172,7 @@ pub fn rustdesk_interval(i: Interval) -> ThrottledInterval {
 }
 
 pub fn load_custom_client() {
+    let _apply_builtin_server = crate::builtin_server::ApplyOnDrop;
     #[cfg(debug_assertions)]
     if let Ok(data) = std::fs::read_to_string("./custom.txt") {
         read_custom_client(data.trim());
@@ -2179,6 +2271,7 @@ pub fn get_dst_align_rgba() -> usize {
 }
 
 pub fn read_custom_client(config: &str) {
+    let _apply_builtin_server = crate::builtin_server::ApplyOnDrop;
     let Ok(data) = decode64(config) else {
         log::error!("Failed to decode custom client config");
         return;

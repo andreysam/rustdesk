@@ -92,7 +92,6 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       ),
       buildTip(context),
       if (!isOutgoingOnly) buildIDBoard(context),
-      if (!isOutgoingOnly) buildPasswordBoard(context),
       FutureBuilder<Widget>(
         future: Future.value(
             Obx(() => buildHelpCards(stateGlobal.updateUrl.value))),
@@ -414,7 +413,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           ),
           if (!isOutgoingOnly)
             Text(
-              translate("desk_tip"),
+              translate("Your desktop can be accessed with this ID."),
               overflow: TextOverflow.clip,
               style: Theme.of(context).textTheme.bodySmall,
             ),
@@ -430,15 +429,17 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   }
 
   Widget buildHelpCards(String updateUrl) {
-    if (!bind.isCustomClient() &&
-        updateUrl.isNotEmpty &&
-        !isCardClosed &&
-        bind.mainUriPrefixSync().contains('rustdesk')) {
-      final isToUpdate = (isWindows || isMacOS) && bind.mainIsInstalled();
+    if (updateUrl.isNotEmpty && !isCardClosed) {
+      final isToUpdate = isWindows && bind.mainIsInstalled();
       String btnText = isToUpdate ? 'Update' : 'Download';
       GestureTapCallback onPressed = () async {
-        final Uri url = Uri.parse('https://rustdesk.com/download');
-        await launchUrl(url);
+        final downloadUrl = bind.mainGetCommonSync(
+            key: 'download-url-${bind.mainGetNewVersion()}');
+        if (downloadUrl.isNotEmpty) {
+          await launchUrl(Uri.parse(downloadUrl));
+        } else {
+          await launchUrl(Uri.parse(updateUrl));
+        }
       };
       if (isToUpdate) {
         onPressed = () {
@@ -452,9 +453,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           onPressed,
           closeButton: true,
           help: isToUpdate ? 'Changelog' : null,
-          link: isToUpdate
-              ? 'https://github.com/rustdesk/rustdesk/releases/tag/${bind.mainGetNewVersion()}'
-              : null);
+          link: isToUpdate ? updateUrl : null);
     }
     if (systemError.isNotEmpty) {
       return buildInstallCard("", systemError, "", () {});

@@ -45,7 +45,7 @@ static mut LATEST_SEED: i32 = 0;
 #[inline]
 fn get_update_temp_dir() -> PathBuf {
     let euid = unsafe { hbb_common::libc::geteuid() };
-    Path::new("/tmp").join(format!(".rustdeskupdate-{}", euid))
+    Path::new("/tmp").join(format!(".novodoc-remote-update-{}", euid))
 }
 
 #[inline]
@@ -307,7 +307,7 @@ fn correct_app_name(s: &str) -> String {
     if let Some(bundleid) = get_bundle_id() {
         s = s.replace("com.carriez.rustdesk", &bundleid);
     }
-    s = s.replace("rustdesk", &crate::get_app_name().to_lowercase());
+    s = s.replace("rustdesk", &crate::get_app_id());
     s = s.replace("RustDesk", &crate::get_app_name());
     s
 }
@@ -357,7 +357,7 @@ pub fn uninstall_service(show_new_window: bool, sync: bool) -> bool {
                     if show_new_window {
                         std::process::Command::new("open")
                             .arg("-n")
-                            .arg(&format!("/Applications/{}.app", crate::get_app_name()))
+                            .arg(&format!("/Applications/{}.app", crate::get_app_id()))
                             .spawn()
                             .ok();
                         // leave open a little time
@@ -806,7 +806,7 @@ pub fn is_installed() -> bool {
         return p
             .to_str()
             .unwrap_or_default()
-            .starts_with(&format!("/Applications/{}.app", crate::get_app_name()));
+            .starts_with(&format!("/Applications/{}.app", crate::get_app_id()));
     }
     false
 }
@@ -845,7 +845,7 @@ pub fn update_me() -> ResultType<()> {
         bail!("Unknown app directory of current exe file: {:?}", cmd);
     };
 
-    let app_name = crate::get_app_name();
+    let app_name = crate::get_app_id();
     if is_installed_daemon && !is_service_stopped {
         let agent = format!("{}_server.plist", crate::get_full_name());
         let agent_plist_file = format!("/Library/LaunchAgents/{}", agent);
@@ -957,7 +957,7 @@ fn extract_dmg(dmg_path: &str, target_dir: &str) -> ResultType<()> {
     }
     let _guard = DmgGuard(mount_point);
 
-    let app_name = format!("{}.app", crate::get_app_name());
+    let app_name = format!("{}.app", crate::get_app_id());
     let src_path = format!("{}/{}", mount_point, app_name);
     let dest_path = format!("{}/{}", target_dir, app_name);
 
@@ -985,7 +985,7 @@ fn extract_dmg(dmg_path: &str, target_dir: &str) -> ResultType<()> {
 }
 
 fn update_extracted(target_dir: &str) -> ResultType<()> {
-    let app_name = crate::get_app_name();
+    let app_name = crate::get_app_id();
     let exe_path = format!(
         "{}/{}.app/Contents/MacOS/{}",
         target_dir, app_name, app_name
