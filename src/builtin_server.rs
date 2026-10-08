@@ -27,8 +27,10 @@ impl Drop for ApplyOnDrop {
 }
 
 pub fn apply_builtin_server() {
-    apply_builtin_server_values(ID_SERVER, KEY, RELAY_SERVER, API_SERVER);
+    // Set APP_NAME before refreshing options: Config2 is loaded lazily using
+    // that name, and must read the same profile that subsequent writes use.
     apply_unattended_client_values();
+    apply_builtin_server_values(ID_SERVER, KEY, RELAY_SERVER, API_SERVER);
 }
 
 pub(crate) fn credential_server() -> &'static str {
