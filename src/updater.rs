@@ -384,7 +384,7 @@ pub fn get_update_download_file_from_url(url: &str) -> Option<PathBuf> {
     let tag = segments.next()?;
     let filename = segments.next()?;
 
-    if owner != "rustdesk"
+    if owner != "andreysam"
         || repo != "rustdesk"
         || releases != "releases"
         || download != "download"
@@ -597,7 +597,7 @@ pub fn check_update_as_root() -> ResultType<bool> {
     let download_url = update_url.replace("tag", "download");
     let version = download_url.split('/').last().unwrap_or_default().to_string();
     let arch = if std::env::consts::ARCH == "aarch64" { "aarch64" } else { "x86_64" };
-    let dmg_url = format!("{}/rustdesk-{}-{}.dmg", download_url, version, arch);
+    let dmg_url = format!("{}/{}-{}-{}.dmg", download_url, crate::common::APP_FILE_NAME, version, arch);
     log::info!("[root-update] New version: {}, downloading from {}", version, dmg_url);
     // Validate URL against GitHub release allowlist before downloading as root
     let Some(file_path_validated) = get_update_download_file_from_url(&dmg_url) else {
@@ -670,29 +670,30 @@ mod tests {
     #[test]
     fn update_download_file_accepts_expected_github_asset_urls() {
         let file = get_download_file_from_url(
-            "https://github.com/rustdesk/rustdesk/releases/download/1.4.0/rustdesk-1.4.0-x86_64.dmg",
+            "https://github.com/andreysam/rustdesk/releases/download/1.5.0/novodoc-remote-1.5.0-x86_64.dmg",
         )
         .expect("valid GitHub release asset URL");
 
         assert_eq!(
             file.file_name().and_then(|name| name.to_str()),
-            Some("rustdesk-1.4.0-x86_64.dmg")
+            Some("novodoc-remote-1.5.0-x86_64.dmg")
         );
     }
 
     #[test]
     fn update_download_file_rejects_untrusted_or_malformed_urls() {
         for url in [
-            "http://github.com/rustdesk/rustdesk/releases/download/1/rustdesk.exe",
+            "http://github.com/andreysam/rustdesk/releases/download/1/rustdesk.exe",
             "https://example.com/rustdesk.exe",
             "https://github.com/other/project/releases/download/1/rustdesk.exe",
-            "https://github.com/rustdesk/rustdesk/releases/download/1/",
-            "https://github.com/rustdesk/rustdesk/releases/download/1/nested/rustdesk.exe",
-            "https://github.com/rustdesk/rustdesk/releases/download/1/C:rustdesk.exe",
-            "https://user@github.com/rustdesk/rustdesk/releases/download/1/rustdesk.exe",
-            "https://github.com:443/rustdesk/rustdesk/releases/download/1/rustdesk.exe",
-            "https://github.com/rustdesk/rustdesk/releases/download/1/rustdesk.exe?download=1",
-            "https://github.com/rustdesk/rustdesk/releases/download/1/rustdesk.exe#download",
+            "https://github.com/rustdesk/rustdesk/releases/download/1/rustdesk.exe",
+            "https://github.com/andreysam/rustdesk/releases/download/1/",
+            "https://github.com/andreysam/rustdesk/releases/download/1/nested/rustdesk.exe",
+            "https://github.com/andreysam/rustdesk/releases/download/1/C:rustdesk.exe",
+            "https://user@github.com/andreysam/rustdesk/releases/download/1/rustdesk.exe",
+            "https://github.com:443/andreysam/rustdesk/releases/download/1/rustdesk.exe",
+            "https://github.com/andreysam/rustdesk/releases/download/1/rustdesk.exe?download=1",
+            "https://github.com/andreysam/rustdesk/releases/download/1/rustdesk.exe#download",
             "not a url",
         ] {
             assert!(get_download_file_from_url(url).is_none(), "{url}");

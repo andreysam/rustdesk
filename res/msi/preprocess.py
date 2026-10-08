@@ -568,4 +568,3 @@ if __name__ == "__main__":
         sys.exit(-1)
 
     replace_app_name_in_langs(args.display_name)
-    replace_app_name_in_custom_actions(args.app_name)

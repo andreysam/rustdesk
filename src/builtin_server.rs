@@ -1,4 +1,5 @@
-use hbb_common::config::{self, keys};
+use base::config::keys;
+use hbb_common::config;
 
 const ID_SERVER: &str = match option_env!("RUSTDESK_SERVER_URL") {
     Some(v) => v,
